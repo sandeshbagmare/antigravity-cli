@@ -2,10 +2,15 @@ import fs from 'fs/promises';
 import path from 'path';
 import chalk from 'chalk';
 import { OAuth2Client } from 'google-auth-library';
+import {
+    ANTIGRAVITY_CLIENT_ID,
+    ANTIGRAVITY_CLIENT_SECRET,
+} from 'opencode-antigravity-auth/dist/src/constants.js';
 
-// OAuth credentials are stored in config.json (gitignored).
-// Copy config.example.json → config.json and fill in your values if needed.
-// The opencode-antigravity-auth package provides defaults for Antigravity IDE users.
+// ─── OAuth client setup ───────────────────────────────────────────────────────
+// Credentials come from the opencode-antigravity-auth package (installed via npm).
+// Override via config.json if needed: { "CLIENT_ID": "...", "CLIENT_SECRET": "...", "REDIRECT_URI": "..." }
+const REDIRECT_URI = 'http://localhost:57936/oauth-callback';
 
 async function loadConfig() {
     try {
@@ -13,35 +18,33 @@ async function loadConfig() {
         const data = await fs.readFile(configPath, 'utf8');
         return JSON.parse(data);
     } catch {
-        // Default: credentials from opencode-antigravity-auth package
+        // Default: use credentials from opencode-antigravity-auth npm package
         return {
-            CLIENT_ID: process.env.ANTIGRAVITY_CLIENT_ID || '',
-            CLIENT_SECRET: process.env.ANTIGRAVITY_CLIENT_SECRET || '',
-            REDIRECT_URI: 'http://localhost:57936/oauth-callback'
+            CLIENT_ID: ANTIGRAVITY_CLIENT_ID,
+            CLIENT_SECRET: ANTIGRAVITY_CLIENT_SECRET,
+            REDIRECT_URI,
         };
     }
 }
 
-const config = await (async () => {
-    return await loadConfig();
-})();
-
+const config = await loadConfig();
 const oauth2Client = new OAuth2Client(config.CLIENT_ID, config.CLIENT_SECRET, config.REDIRECT_URI);
 
+// ─── Token management ─────────────────────────────────────────────────────────
 // Loads all tokens from keys.json. Auto-refreshes any that expire within 5 minutes.
 export async function getValidTokens() {
     const keysPath = path.resolve(process.cwd(), 'keys.json');
     let rawKeys;
     try {
         rawKeys = await fs.readFile(keysPath, 'utf8');
-    } catch (e) {
+    } catch {
         return [];
     }
 
     let parsed = [];
     try {
         parsed = JSON.parse(rawKeys);
-    } catch (e) {
+    } catch {
         return [];
     }
 
@@ -57,9 +60,8 @@ export async function getValidTokens() {
             updated = true;
         }
 
-        // Token validity check
+        // Auto-refresh if expired or less than 5 minutes remaining
         if (account.refresh_token && account.expiry_date) {
-            // Refresh if expired or less than 5 minutes remaining
             if (Date.now() > account.expiry_date - 5 * 60000) {
                 try {
                     oauth2Client.setCredentials({ refresh_token: account.refresh_token });

@@ -7,6 +7,8 @@ import { OAuth2Client } from 'google-auth-library';
 import {
     ANTIGRAVITY_SYSTEM_INSTRUCTION,
     ANTIGRAVITY_DEFAULT_PROJECT_ID,
+    ANTIGRAVITY_CLIENT_ID,
+    ANTIGRAVITY_CLIENT_SECRET,
     getAntigravityHeaders
 } from 'opencode-antigravity-auth/dist/src/constants.js';
 import { getValidTokens } from './auth.js';
@@ -16,17 +18,16 @@ const CLOUD_CODE_BASE   = 'https://cloudcode-pa.googleapis.com';
 const DEFAULT_PROJECT_ID = ANTIGRAVITY_DEFAULT_PROJECT_ID || 'rising-fact-p41fc';
 const KEYS_PATH          = path.resolve(process.cwd(), 'keys.json');
 
-// Load OAuth credentials from config.json (same source as auth.js)
+// OAuth credentials come from the opencode-antigravity-auth npm package.
+// Override via config.json if needed: { "CLIENT_ID": "...", "CLIENT_SECRET": "...", "REDIRECT_URI": "..." }
 const _oauthConfig = await (async () => {
     try {
         const data = await fs.readFile(path.resolve(process.cwd(), 'config.json'), 'utf8');
         return JSON.parse(data);
     } catch {
-        // Credentials loaded from opencode-antigravity-auth package at runtime
-        // Copy config.example.json → config.json and fill in your values if needed
         return {
-            CLIENT_ID: process.env.ANTIGRAVITY_CLIENT_ID || '',
-            CLIENT_SECRET: process.env.ANTIGRAVITY_CLIENT_SECRET || '',
+            CLIENT_ID: ANTIGRAVITY_CLIENT_ID,
+            CLIENT_SECRET: ANTIGRAVITY_CLIENT_SECRET,
             REDIRECT_URI: 'http://localhost:57936/oauth-callback'
         };
     }
